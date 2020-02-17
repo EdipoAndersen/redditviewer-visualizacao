@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<head>
+    <title>Reddit Viewer</title>
+    <script src="https://d3js.org/d3.v4.min.js"></script>
+    <script src="../Histogram/histogram.js"></script>
+    <script src="../ForceDirectedLayout/fdl.js"></script>
+    <script src="../ForceDirectedLayout/edge_bundle.js"></script>
+   
+    <link rel="stylesheet" type="text/css" href="../Histogram/style.css">
+    <link rel="stylesheet" type="text/css" href="../ForceDirectedLayout/style.css">
+    <link rel="stylesheet" type="text/css" href="../ForceDirectedLayout/style.css">
+    <link rel="stylesheet" type="text/css" href="../ForceDirectedLayout/style_edge.css">
+</head>
+<style type="text/css">
+#view_subtitle {
+    border-radius: 25px;
+    border: 2px solid #35465c;
+    background: #FFFFFF;
+    height: 50px;
+    opacity:0.9;
+    margin: 0 auto;
+}
+#subtitle{
+    width: 60%;
+    height: 50px;
+    display: block;
+    margin: auto;
+    padding-top: 12px;
+}
+#fdl{
+    width: 50%; 
+    float: left;
+    height:600px;
+  
+}
+#edge{
+    margin-left: 55%;
+    height:600px;
+ 
+}
+#histogram_weekday{
+    width: 50%; 
+    float: left;
+}
+#histogram_hours{
+    margin-left: 55%;
+}
+#view_top, #view_down, #controller{
+    width: 100%; 
+    overflow: hidden;
+    margin-top: 1%;
+    margin-bottom: 1%;
+    background: #FFFFFF ;
+    border: 2px solid #d8d5da;
+    border-radius: 25px;
+}
+#view_down{
+    margin-top: 2%;
+}
+h2 {
+    color: #171810;
+    text-align:center;
+    font-size: 14px;
+    font-family: "Helvetica";
+}
+#controller{
+    margin-top: 5%;
+    width: 45%;
+    border: 2px dotted #d8d5da;
+    background: #FFFFFF  ;
+    border-radius: 20px;
+    margin: 0 auto;
+}
+.controller{
+    margin: 0 auto;
+    display: block;
+    padding-left: 2%;
+}
+body{
+    background-color: #041a2f;
+}
+#histogram_weekday > svg, #histogram_hours svg{
+    margin-left: 5%;
+}
+#sub_weekday, #sub_hour{
+    color: #fe8e5c;
+    font-size: 14px;
+
+}
+#controller_text h1, h2{
+    display: inline;
+    margin-left: 6%;
+}
+</style>
+<body>
+    <div id="view_subtitle">
+        <svg id="subtitle"></svg>
+    </div>
+
+    <div id="view_top">
+        <div id="fdl"></div>
+        <div id="edge"> </div>
+    </div>
+    <div id="controller">
+        <div id="controller_text">
+            <h2 id="min_force">Min:__</h2>
+            <h2>Edge filter(#users in both subreddits) </h2>
+            <h2 id="max_force">Max:__</h2>
+        </div>
+       <svg class="controller" width="500" height="60"></svg>
+    </div>
+
+    <div id="view_down">
+        <div id="histogram_weekday">
+            <h2>Comments <i id="sub_weekday"> comicbooks </i> by weekday</h2>
+        </div>
+         <div id="histogram_hours">
+            <h2>Comments <i id="sub_hour"> comicbooks </i> by hour</h2>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        // Clylton's variables
+        var pra_torar_na_emenda = false;
+        var min = 30;
+        var max = 80;
+        // End of Clylton's variables
+        
+        var svg_subtitle = d3.select("#subtitle");
+        createSubtitle(svg_subtitle);
+
+        var body_fdl = d3.select("#fdl");
+        var fdl = new ForceDirectedGraph(500, 350, body_fdl, "https://acff.github.io/redditviewer-visualizacao-2017-1.github.io/VisualizationsCode/ForceDirectedLayout/test.json");    
+        fdl.updateThreshold(min, max);
+
+        var body_edge = d3.select("#edge");
+        var edgeBundle = new EdgeBundle(900, 600, body_edge, "https://acff.github.io/redditviewer-visualizacao-2017-1.github.io/VisualizationsCode/ForceDirectedLayout/test.json");    
+        edgeBundle.updateThreshold(min, max);
+
+        var body_histogram_weekday = d3.select("#histogram_weekday");
+        var xScale = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        var hist = new Histogram(body_histogram_weekday, xScale, "../Histogram/resultByDay.csv", "comicbooks", "h1");
+        hist.buildHistogram();
+
+        var body_histogram_hour = d3.select("#histogram_hours");
+        var xScale2 = Array.apply(null, {length: 24}).map(Number.call, Number);
+        var hist2 = new Histogram(body_histogram_hour, xScale2, "../Histogram/resultByHour.csv", "comicbooks", "h2");
+        hist2.buildHistogram();
+
+        var myDispatchFromFDL = d3.dispatch("selectionChanged");
+        myDispatchFromFDL.on("selectionChanged",function(){
+            //console.log(this.objects);//histogram.refresh(this.objects);
+            hist.updateHistogram(this.objects);
+            hist2.updateHistogram(this.objects);
+            d3.select("#sub_weekday").html(this.objects);
+            d3.select("#sub_hour").html(this.objects);  
+        });
+        fdl.dispatch = myDispatchFromFDL;
+
+        var myDispatchFromEdgeBundle = d3.dispatch("selectionChanged");
+        myDispatchFromEdgeBundle.on("selectionChanged",function(){
+            //console.log(this.objects);//histogram.refresh(this.objects);
+            hist.updateHistogram(this.objects);
+            hist2.updateHistogram(this.objects);
+            d3.select("#sub_weekday").html(this.objects);
+            d3.select("#sub_hour").html(this.objects);         
+        });
+        edgeBundle.dispatch = myDispatchFromEdgeBundle;
+        
+
+//BRUSH ----------------------------------------------------------------------------
+        var data = d3.range(800).map(Math.random);
+        var svg = d3.select(".controller"),
+            width = +svg.attr("width") - 40,
+            height = +svg.attr("height") - 20,
+            g = svg.append("g").attr("transform", "translate(" + 5 + "," + 0+ ")");
+        var x = d3.scaleLinear().range([0, width]).domain([0, 100]),
+            y = d3.randomNormal(height / 2, height / 8);
+        var brush = d3.brushX()
+            .extent([[0, 0], [width, height]])
+            .on("start brush end", brushmoved);
+        g.append("g")
+            .attr("class", "axis axis--x")
+            .attr("transform", "translate(0," + height + ")")
+            .call(d3.axisBottom(x).tickFormat(function(d) { return (d+"%"); }));
+        var gBrush = g.append("g")
+            .attr("class", "brush")
+            .call(brush);
+        gBrush.call(brush.move, [min, max].map(x));
+        function brushmoved() {
+            var s = d3.event.selection;
+            //console.log( d3.event.selection.map(x.invert));
+            min = d3.event.selection.map(x.invert)[0];
+            max = d3.event.selection.map(x.invert)[1];
+            changeThreshold(min, max);
+
+            //d3.select("#min_force").html("Min: "+Number((fdl.curr_bottom_edge_strength).toFixed(1)));  
+            //d3.select("#max_force").html("Max: "+Number((fdl.curr_highest_edge_strength).toFixed(1)));  
+        }
+        
+        pra_torar_na_emenda = true;
+        
+        //controller aux functions
+        function changeThreshold(min_threshold, max_threshold) {
+            if(pra_torar_na_emenda) {
+              fdl.updateThreshold(min_threshold, max_threshold);
+              edgeBundle.updateThreshold(min_threshold, max_threshold);
+              d3.select("#min_force").html("Min: "+Number((fdl.curr_bottom_edge_strength).toFixed(1)));  
+              d3.select("#max_force").html("Max: "+Number((fdl.curr_highest_edge_strength).toFixed(1)));
+            } else {
+              // Nothing here, as you can see
+            }
+        }
+
+        //subtitle 
+        function createSubtitle(svg) {
+            var subs = ["entertainment", "gaming", "humor", "lifestyle", "learning", "news", "television"];
+            var color = d3.scaleOrdinal(d3.schemeCategory20);
+
+            for(var i=0; i<subs.length; i++) {
+              svg.append('rect')
+                .attr("fill", color(subs[i]))
+                .attr('x', i*100)
+                .attr('y', 0)
+                .attr("width", 20)
+                .attr("height", 20);
+
+              svg.append("text")
+                .attr('x', 22 + i*100)
+                .attr("y", 15)
+                .style("font-size", "11px")               
+                .style("margin-right", "1%")
+                .text(subs[i].charAt(0).toUpperCase() + subs[i].slice(1));
+            }
+        }
+    </script>
+</body>
